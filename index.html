@@ -1,103 +1,97 @@
-<!doctype html>
-<html lang="sl">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>NEP_RPE_OBCINE</title>
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 
-  <!-- Leaflet CSS -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
-  />
+    <!-- leaflet css -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.5.1/dist/leaflet.css"
+      integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+      crossorigin=""
+    />
 
-  <style>
-    html, body { height: 100%; margin: 0; }
-    #map { height: 100%; width: 100%; }
-    .status {
-      position: absolute; z-index: 9999; left: 10px; top: 10px;
-      background: rgba(255,255,255,0.9); padding: 8px 10px; border-radius: 8px;
-      font: 14px/1.3 system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
-      max-width: 70ch;
-    }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <div class="status" id="status">Nalagam GeoJSON…</div>
+    <!-- leaflet js -->
+    <script
+      src="https://unpkg.com/leaflet@1.5.1/dist/leaflet.js"
+      integrity="sha512-GffPMF3RvMeYyc1LWMHtK8EbPv0iNZ8/oTtHPx9/cc2ILxQ+u905qIwdpULaqDkyBKgOaB57QTMg7ztg8Jm2Og=="
+      crossorigin=""
+    ></script>
 
-  <!-- Leaflet JS -->
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""
-  ></script>
+    <title>NEP_RPE_OBCINE</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <script>
-    const statusEl = document.getElementById("status");
+    <style>
+      body { margin: 0; padding: 0; }
+      #map { height: 100vh; width: 100%; }
+    </style>
+  </head>
 
-    // Osnovna mapa
-    const map = L.map("map").setView([46.05, 14.5], 8);
+  <body>
+    <div id="map"></div>
 
-    // Basemap (OSM)
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+    <script>
+      // 1) osnovna karta
+      var map = L.map("map").setView([46.15, 14.99], 8);
 
-    // GeoJSON v ROOT mapi (isto kot index.html)
-    const geojsonUrl = "./NEP_RPE_OBCINE.json";
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map);
 
-    fetch(geojsonUrl)
-      .then(async (r) => {
-        if (!r.ok) {
-          const t = await r.text();
-          throw new Error(`HTTP ${r.status} pri ${geojsonUrl}\n${t.slice(0, 200)}`);
-        }
-        return r.json();
-      })
-      .then((data) => {
-        statusEl.textContent = "Dodajam sloj…";
+      // 2) helper za stil
+      function styleFeature(feature) {
+        return {
+          color: "#111",
+          weight: 1,
+          fillOpacity: 0.35,
+        };
+      }
 
-        const layer = L.geoJSON(data, {
-          style: () => ({
-            weight: 1,
-            fillOpacity: 0.15
-          }),
-          onEachFeature: (feature, layer) => {
-            // Pokaži nekaj atributov, če obstajajo
-            const p = feature.properties || {};
-            const name = p.NAZIV || p.name || p.IME_OBCINA || "Občina";
-            let html = `<b>${name}</b><br/>`;
-            // Dodaj še par polj, če so
-            ["SIFRA", "ID_OBCINA", "OZNAKA_MESTNE_OBCINE"].forEach(k => {
-              if (p[k] !== undefined) html += `${k}: ${p[k]}<br/>`;
-            });
-            layer.bindPopup(html);
+      // 3) naloži geojson iz ISTE mape kot index.html
+      fetch("./NEP_RPE_OBCINE.json")
+        .then((response) => {
+          if (!response.ok) throw new Error("HTTP " + response.status);
+          return response.json();
+        })
+        .then((data) => {
+          // debug: poglej v konzoli, ali se je sploh naložilo
+          console.log("Loaded GeoJSON:", data);
+
+          var layer = L.geoJSON(data, {
+            style: styleFeature,
+            onEachFeature: function (feature, lyr) {
+              // poskusi najti neko smiselno ime atributa
+              var props = feature.properties || {};
+              var title =
+                props.NAZIV ||
+                props.IME_OBCINA ||
+                props.NAME ||
+                props.naziv ||
+                "Občina";
+
+              // pokaži vse atribute v popupu
+              var rows = Object.keys(props)
+                .map((k) => `<tr><td><b>${k}</b></td><td>${props[k]}</td></tr>`)
+                .join("");
+
+              lyr.bindPopup(`<h3>${title}</h3><table>${rows}</table>`);
+            },
+          }).addTo(map);
+
+          // 4) zoom na sloj (da ne bo “prazno”)
+          try {
+            map.fitBounds(layer.getBounds());
+          } catch (e) {
+            console.warn("fitBounds failed (maybe invalid coords/CRS).", e);
           }
-        }).addTo(map);
-
-        // Približaj na podatke
-        const b = layer.getBounds();
-        if (b.isValid()) {
-          map.fitBounds(b, { padding: [20, 20] });
-        }
-
-        statusEl.textContent = `OK — naloženo.`;
-        setTimeout(() => statusEl.remove(), 2500);
-      })
-      .catch((err) => {
-        console.error(err);
-        statusEl.textContent =
-          "Napaka pri nalaganju GeoJSON.\n" +
-          "Odpri DevTools → Console/Network.\n" +
-          err.message;
-      });
-  </script>
-</body>
+        })
+        .catch((err) => {
+          console.error("Failed to load GeoJSON:", err);
+          alert("Ne morem naložiti NEP_RPE_OBCINE.json. Odpri Console (F12).");
+        });
+    </script>
+  </body>
 </html>
-
-
