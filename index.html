@@ -51,7 +51,7 @@
       }
 
       // 3) naloži geojson iz ISTE mape kot index.html
-      fetch("./NEP_RPE_OBCINE.json")
+      fetch("./obcine_wgs.json")
         .then((response) => {
           if (!response.ok) throw new Error("HTTP " + response.status);
           return response.json();
